@@ -108,6 +108,15 @@ def context_out(d):
             "block_threshold": ctx.policy_version.block_threshold,
             "review_threshold": ctx.policy_version.review_threshold,
         },
+        "tool_invocations": [
+            {"tool_id": t.tool_id, "tool_name": t.tool_name, "deterministic": t.deterministic}
+            for t in ctx.tool_invocations
+        ],
+        "control_definitions": [
+            {"control_id": c.control_id, "name": c.name, "rule": c.rule}
+            for c in ctx.control_definitions
+        ],
+        "human_override": d.human_override is not None,
     }
 
 

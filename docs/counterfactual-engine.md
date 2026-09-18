@@ -29,3 +29,7 @@ and the Hypothesis property `test_remove_then_readd_same_evidence_restores_score
 assert: remove evidence, then add it back with identical fields, and the decision score
 is bit-for-bit (within float tolerance) what it was before. This is what "the engine is
 not lying to you" looks like as a test.
+
+## Forensic Sweep
+
+`sweep_engine.run_forensic_sweep()` calls `run_counterfactual()` once per auto-generated single-variable mutation -- it does not reimplement this pipeline. See `docs/forensic-sweep.md` for the full design, including why only `REMOVE_EVIDENCE`/`REMOVE_TOOL_RESULT`/`DISABLE_CONTROL` are auto-generated.

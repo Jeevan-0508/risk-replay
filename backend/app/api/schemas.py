@@ -116,3 +116,7 @@ class ModelIn(BaseModel):
     weights: dict[str, float]
     base_rate: float = 0.0
     description: str = ""
+
+
+class ForensicSweepIn(BaseModel):
+    approved_model: str = "fraud-v3.2"

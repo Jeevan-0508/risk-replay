@@ -147,3 +147,42 @@ def test_create_and_list_policy(client):
     r = client.get("/policies")
     ids = [p["policy_id"] for p in r.json()]
     assert "policy-99" in ids
+
+
+def test_forensic_sweep_endpoint_flips_e3_to_allow(client):
+    r = client.post("/decisions/DEC-001/forensic-sweep", json={"approved_model": "fraud-v3.2"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["baseline_outcome"] == "BLOCK"
+    e3 = next(e for e in body["experiments"] if e["variable"] == "E3")
+    assert e3["counterfactual_outcome"] == "ALLOW"
+    assert e3["diverged"] is True
+    assert e3["causal_status"] == "DECISION_CRITICAL"
+    assert body["summary"]["most_sensitive_variable"] == "E3"
+    assert any(u["mutation_type"] == "CHANGE_THRESHOLD" for u in body["unsupported_mutation_types"])
+
+
+def test_forensic_sweep_persists_and_can_be_retrieved(client):
+    r = client.post("/decisions/DEC-001/forensic-sweep", json={"approved_model": "fraud-v3.2"})
+    sweep_id = r.json()["sweep_id"]
+
+    r2 = client.get(f"/decisions/DEC-001/forensic-sweeps/{sweep_id}")
+    assert r2.status_code == 200
+    assert r2.json()["sweep_id"] == sweep_id
+
+    r3 = client.get("/decisions/DEC-001/forensic-sweeps")
+    assert r3.status_code == 200
+    assert any(s["sweep_id"] == sweep_id for s in r3.json())
+
+
+def test_forensic_sweep_404_for_unknown_decision(client):
+    r = client.post("/decisions/NOPE/forensic-sweep", json={})
+    assert r.status_code == 404
+
+
+def test_forensic_sweep_governance_impact_present_in_response(client):
+    r = client.post("/decisions/DEC-001/forensic-sweep", json={"approved_model": "fraud-v3.2"})
+    body = r.json()
+    e3 = next(e for e in body["experiments"] if e["variable"] == "E3")
+    control_ids = {g["control_id"] for g in e3["governance_impact"]}
+    assert control_ids == {"C-17", "C-08"}

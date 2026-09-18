@@ -25,11 +25,13 @@ from app.engines.governance_engine import evaluate_controls
 from app.engines.mutation_engine import Mutation
 from app.engines.replay_engine import replay
 from app.engines.risk_engine import assess_risk, blast_radius
+from app.engines.sweep_engine import run_forensic_sweep, sweep_to_dict
 from app.api.schemas import (
     CounterfactualIn,
     CounterfactualOut,
     DecisionDetailOut,
     DecisionSummaryOut,
+    ForensicSweepIn,
     GovernanceFindingOut,
     IncidentIn,
     ModelIn,
@@ -180,6 +182,45 @@ def counterfactual(decision_id: str, body: CounterfactualIn, db: Session = Depen
         causal_status=finding.status.value, causal_explanation=finding.explanation,
         is_multi_variable=result.is_multi_variable, diff_fields=result.diff.as_table(),
     )
+
+
+@app.post("/decisions/{decision_id}/forensic-sweep")
+def forensic_sweep(decision_id: str, body: ForensicSweepIn = ForensicSweepIn(), db: Session = Depends(get_db)):
+    """Runs the automatic single-variable Forensic Sweep (see docs/forensic-sweep.md):
+    one deterministic counterfactual experiment per evidence item, tool invocation
+    and control, each starting fresh from the decision's own recorded context.
+    Every field in the response comes from the real engines -- nothing mocked."""
+    decision = repo.get_decision(db, decision_id)
+    if not decision:
+        raise HTTPException(404, f"Decision {decision_id} not found")
+    try:
+        result = run_forensic_sweep(decision, approved_model_ids={body.approved_model})
+    except Exception as exc:
+        logger.exception("Forensic sweep failed for %s", decision_id)
+        raise HTTPException(400, str(exc))
+    repo.save_forensic_sweep(db, result)
+    return sweep_to_dict(result)
+
+
+@app.get("/decisions/{decision_id}/forensic-sweeps")
+def list_forensic_sweeps(decision_id: str, db: Session = Depends(get_db)):
+    decision = repo.get_decision(db, decision_id)
+    if not decision:
+        raise HTTPException(404, f"Decision {decision_id} not found")
+    records = repo.list_forensic_sweeps(db, decision_id)
+    return [
+        {"sweep_id": r.sweep_id, "decision_id": r.decision_id, "experiment_count": r.experiment_count,
+         "decision_critical_count": r.decision_critical_count, "timestamp": r.timestamp}
+        for r in records
+    ]
+
+
+@app.get("/decisions/{decision_id}/forensic-sweeps/{sweep_id}")
+def get_forensic_sweep(decision_id: str, sweep_id: str, db: Session = Depends(get_db)):
+    record = repo.get_forensic_sweep(db, sweep_id)
+    if not record or record.decision_id != decision_id:
+        raise HTTPException(404, f"Forensic sweep {sweep_id} not found for decision {decision_id}")
+    return record.result_json
 
 
 @app.get("/decisions/{decision_id}/risk", response_model=RiskAssessmentOut)

@@ -124,3 +124,14 @@ class ModelRecord(Base):
     weights_json: Mapped[dict] = mapped_column(JSON, default=dict)
     base_rate: Mapped[float] = mapped_column(Float, default=0.0)
     description: Mapped[str] = mapped_column(Text, default="")
+
+
+class ForensicSweepRecord(Base):
+    __tablename__ = "forensic_sweeps"
+
+    sweep_id: Mapped[str] = mapped_column(String, primary_key=True)
+    decision_id: Mapped[str] = mapped_column(String, ForeignKey("decisions.decision_id"), index=True)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    experiment_count: Mapped[int] = mapped_column(Integer)
+    decision_critical_count: Mapped[int] = mapped_column(Integer)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

@@ -87,6 +87,47 @@ export interface GovernanceFinding {
   evidence: string[];
 }
 
+export interface ForensicExperiment {
+  experiment_id: string;
+  decision_id: string;
+  variable: string;
+  variable_kind: string;
+  mutation_type: string;
+  mutation_summary: string;
+  baseline_outcome: string;
+  baseline_score: number;
+  counterfactual_outcome: string;
+  counterfactual_score: number;
+  score_delta: number;
+  diverged: boolean;
+  causal_status: string;
+  causal_explanation: string;
+  replayability_status: string;
+  replayability_reasons: string[];
+  sensitivity: number;
+  boundary: Record<string, unknown>;
+  governance_impact: { control_id: string; control_name: string; before_status: string; after_status: string; changed: boolean }[];
+}
+
+export interface ForensicSweepOut {
+  sweep_id: string;
+  decision_id: string;
+  baseline_outcome: string;
+  baseline_score: number;
+  timestamp: string;
+  experiments: ForensicExperiment[];
+  unsupported_mutation_types: { mutation_type: string; reason: string }[];
+  summary: {
+    experiment_count: number;
+    decision_critical_count: number;
+    decision_irrelevant_count: number;
+    contributory_count: number;
+    non_replayable_count: number;
+    most_sensitive_variable: string | null;
+    divergence_ratio: number;
+  };
+}
+
 export const liveApi = {
   listDecisions: () => req<DecisionSummary[]>("/decisions"),
   getDecision: (id: string) => req<DecisionDetail>(`/decisions/${id}`),
@@ -102,5 +143,7 @@ export const liveApi = {
   getIncidentBlastRadius: (id: string) => req<any>(`/incidents/${id}/blast-radius`),
   policyImpactReplay: (policyId: string, body: any) =>
     req<any>(`/policies/${policyId}/impact-replay`, { method: "POST", body: JSON.stringify(body) }),
+  forensicSweep: (id: string, approvedModel: string = "fraud-v3.2") =>
+    req<ForensicSweepOut>(`/decisions/${id}/forensic-sweep`, { method: "POST", body: JSON.stringify({ approved_model: approvedModel }) }),
   health: () => req<{ status: string }>("/health"),
 };

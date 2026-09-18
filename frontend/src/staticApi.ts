@@ -11,8 +11,8 @@
  * the Replay Lab are genuinely evaluated, not looked up. See STATUS.md for
  * why this exists: GitHub Pages can't run the Python backend.
  */
-import type { DecisionSummary, DecisionDetail, LineageGraph, CounterfactualOut, RiskAssessment, GovernanceFinding } from "./liveApi";
-import { runCounterfactual } from "./staticEngine";
+import type { DecisionSummary, DecisionDetail, LineageGraph, CounterfactualOut, RiskAssessment, GovernanceFinding, ForensicSweepOut } from "./liveApi";
+import { runCounterfactual, runForensicSweepStatic } from "./staticEngine";
 import type { StaticContext } from "./staticEngine";
 
 interface Bundle {
@@ -114,6 +114,14 @@ export const staticApi = {
   getIncidentTimeline: async (_id: string) => notAvailable("Incident timeline"),
   getIncidentBlastRadius: async (_id: string) => notAvailable("Blast radius"),
   policyImpactReplay: async (_policyId: string, _body: any) => notAvailable("Policy impact replay"),
+
+  forensicSweep: async (id: string, approvedModel: string = "fraud-v3.2"): Promise<ForensicSweepOut> => {
+    const b = await loadBundle();
+    const ctx = b.contexts[id];
+    if (!ctx) throw new Error(`Decision ${id} not found`);
+    const result = runForensicSweepStatic(ctx, id, new Set([approvedModel]));
+    return { ...result, timestamp: new Date().toISOString() } as ForensicSweepOut;
+  },
 
   health: async () => ({ status: "ok (static demo, no backend)" }),
 };

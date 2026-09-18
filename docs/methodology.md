@@ -22,3 +22,7 @@ and this doc for completeness of the status vocabulary, but `causal_engine.analy
 does not yet emit them -- today it only distinguishes
 critical/irrelevant/contributory/non-replayable. Extending it is a small, contained
 change once a concrete scenario needs the finer distinction.
+
+## Forensic Sweep
+
+The automatic Forensic Sweep (see `docs/forensic-sweep.md`) reuses this exact vocabulary and the same `causal_engine.analyze()` call per experiment -- it does not introduce a second causal-language system. `CONTRIBUTORY` still never appears from a sweep experiment, because every auto-generated sweep mutation is single-variable by construction.

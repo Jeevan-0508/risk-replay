@@ -94,6 +94,27 @@ Against the 40-decision golden dataset this replays every historical decision un
 the new thresholds and reports exactly how many outcomes change, how many now require
 human review, and which specific decisions moved.
 
+## Third demo: Forensic Sweep
+
+One click on DEC-001's Decision Forensics screen: "RUN FORENSIC SWEEP" automatically
+builds and runs one single-variable counterfactual per evidence item, tool result and
+control already in the recorded context (9 experiments for DEC-001), ranks them by a
+deterministic sensitivity score, and shows exactly which one is decision-critical --
+without you having to build any of those counterfactuals by hand:
+
+```bash
+curl -X POST localhost:8000/decisions/DEC-001/forensic-sweep
+```
+
+Removing `E3` alone flips `BLOCK -> ALLOW` (score delta `-0.285`, `DECISION_CRITICAL`);
+removing `E1`, `E2` or `E4` alone drops the score into `REVIEW` but does not clear it
+(also `DECISION_CRITICAL` for the REVIEW boundary, not the BLOCK boundary); removing any
+tool result or control changes nothing (`DECISION_IRRELEVANT`). `CHANGE_POLICY`,
+`CHANGE_MODEL`, `CHANGE_THRESHOLD` and other mutation types that would require
+fabricating a hypothetical value are deliberately **not** auto-generated -- see
+`docs/forensic-sweep.md` for exactly why, and how to run them manually instead. Full
+design and the TS/Python parity guarantee for the static demo: `docs/forensic-sweep.md`.
+
 ## Architecture
 
 ```
@@ -165,10 +186,14 @@ Built and tested end-to-end against real persisted data:
   policy-impact replay.
 - Full REST API (`backend/app/api/main.py`) -- every route calls a real engine, nothing
   hardcoded.
+- Forensic Sweep engine (`backend/app/engines/sweep_engine.py`) -- automatic,
+  deterministic single-variable counterfactual scan per decision, reusing every existing
+  engine rather than duplicating their formulas. See `docs/forensic-sweep.md`.
 - 40-decision golden dataset, event log, SQLite by default / Postgres-ready.
-- 34 automated tests: unit, API integration, and Hypothesis property-based
+- 60 automated tests: unit, API integration, Hypothesis property-based
   (`Replay(original) == original`, remove-then-restore round-trips, threshold mutations
-  never leave `[0,1]`).
+  never leave `[0,1]`), and Forensic Sweep-specific determinism/isolation/adversarial
+  cases (`backend/tests/test_sweep_engine.py`).
 
 Deliberately deferred (see `docs/` for the honest list, not hidden):
 - Full 10-screen forensic UI -- v1 ships Command Center, Decision Vault, Decision
@@ -188,6 +213,7 @@ Deliberately deferred (see `docs/` for the honest list, not hidden):
 - `docs/governance-engine.md`, `docs/risk-engine.md` -- formulas
 - `docs/methodology.md` -- causal language rules
 - `docs/failure-modes.md` -- non-replayability, explicitly
+- `docs/forensic-sweep.md` -- automatic counterfactual sweep design, and why some mutation types are excluded from it
 - `docs/security.md`, `docs/threat-model.md` -- what provenance hashing does and does
   not guarantee
 

@@ -17,6 +17,7 @@ from app.db.orm_models import (
     CounterfactualRecord,
     DecisionRecord,
     EventRecord,
+    ForensicSweepRecord,
     IncidentRecord,
     ModelRecord,
     MutationRecord,
@@ -28,6 +29,7 @@ from app.domain.models import Decision
 from app.engines.counterfactual_engine import CounterfactualResult
 from app.engines.mutation_engine import Mutation
 from app.engines.replay_engine import ReplayResult
+from app.engines.sweep_engine import ForensicSweepResult, sweep_to_dict
 
 
 def new_id(prefix: str) -> str:
@@ -163,3 +165,28 @@ def list_policies(db: Session) -> list[PolicyRecord]:
 
 def list_models(db: Session) -> list[ModelRecord]:
     return db.execute(select(ModelRecord)).scalars().all()
+
+
+def save_forensic_sweep(db: Session, result: ForensicSweepResult) -> None:
+    db.add(ForensicSweepRecord(
+        sweep_id=result.sweep_id, decision_id=result.decision_id,
+        result_json=sweep_to_dict(result),
+        experiment_count=result.summary.experiment_count,
+        decision_critical_count=result.summary.decision_critical_count,
+        timestamp=result.timestamp,
+    ))
+    record_event(db, result.decision_id, "ForensicSweepCompleted", {
+        "sweep_id": result.sweep_id, "experiment_count": result.summary.experiment_count,
+        "decision_critical_count": result.summary.decision_critical_count,
+    })
+    db.commit()
+
+
+def get_forensic_sweep(db: Session, sweep_id: str) -> ForensicSweepRecord | None:
+    return db.get(ForensicSweepRecord, sweep_id)
+
+
+def list_forensic_sweeps(db: Session, decision_id: str) -> list[ForensicSweepRecord]:
+    return db.execute(
+        select(ForensicSweepRecord).where(ForensicSweepRecord.decision_id == decision_id).order_by(ForensicSweepRecord.timestamp)
+    ).scalars().all()

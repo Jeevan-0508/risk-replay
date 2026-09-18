@@ -3,6 +3,7 @@ import { api } from "../api";
 import type { DecisionDetail, LineageGraph, RiskAssessment, GovernanceFinding } from "../api";
 import { OutcomeBadge, StatusBadge } from "../components/Badge";
 import { ReplayLab } from "./ReplayLab";
+import { ForensicSweep } from "./ForensicSweep";
 
 export function DecisionForensics({ decisionId }: { decisionId: string }) {
   const [decision, setDecision] = useState<DecisionDetail | null>(null);
@@ -132,6 +133,7 @@ export function DecisionForensics({ decisionId }: { decisionId: string }) {
       </div>
 
       <ReplayLab decisionId={decision.decision_id} evidence={decision.evidence} originalOutcome={decision.final_outcome} originalScore={decision.risk_score} />
+      <ForensicSweep decisionId={decision.decision_id} originalOutcome={decision.final_outcome} originalScore={decision.risk_score} />
     </div>
   );
 }
