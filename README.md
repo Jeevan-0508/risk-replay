@@ -4,6 +4,11 @@
 
 > Reconstruct the decision. Change the evidence. See what breaks.
 
+**Live demo:** [jeevan-0508.github.io/risk-replay](https://jeevan-0508.github.io/risk-replay/)
+(static build against a precomputed dataset, no backend required, see
+[Static demo mode](#static-demo-mode) below). For the full dynamic backend, run it
+locally: see [Quick start](#quick-start).
+
 ## The problem
 
 Most AI-assisted systems can tell you what a decision was. Some can show you the logs
@@ -134,6 +139,22 @@ Run the tests:
 cd backend
 python -m pytest -q         # 34 tests: unit, integration, property-based
 ```
+
+## Static demo mode
+
+GitHub Pages only serves static files, it can't run the Python backend, so the live
+demo above ships a client-side build: `backend/scripts/dump_static_bundle.py` runs the
+real engines once against the golden dataset and freezes the output to
+`frontend/public/data/bundle.json`, and `frontend/src/staticEngine.ts` is a line-for-line
+TypeScript port of the decision/mutation/diff/causal engines so the Replay Lab's
+counterfactual feature stays genuinely interactive (build a mutation, it actually gets
+evaluated, not looked up from a fixed list). `frontend/src/api.ts` picks this
+(`VITE_STATIC=true`) or the real backend (`liveApi.ts`, default in dev) at build time.
+Verified the TS port reproduces the exact backend numbers for the golden scenario and
+for multi-variable mutations before deploying.
+
+The dynamic backend (persistence, incidents, policy-impact-replay, arbitrary decisions
+beyond the golden dataset) only runs locally -- see Quick start below.
 
 ## What's built vs. what's deferred
 

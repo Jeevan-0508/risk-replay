@@ -44,11 +44,42 @@ before treating the UI as fully verified.
 - `CausalStatus.NON_DETERMINATIVE` / `INSUFFICIENT_EVIDENCE` are defined but not yet
   emitted by `causal_engine.analyze()` -- see docs/methodology.md.
 
+## Deployed (session 2, same day)
+**Live: https://jeevan-0508.github.io/risk-replay/**
+
+GitHub Pages only serves static files and can't run the Python backend, so instead of
+standing up a separate host (Render/Railway all need a new account signup), the
+deterministic engines were ported to TypeScript (`frontend/src/staticEngine.ts`) and a
+full data bundle precomputed from the real Python engines
+(`backend/scripts/dump_static_bundle.py` -> `frontend/public/data/bundle.json`, 40
+decisions). `frontend/src/api.ts` branches between `liveApi.ts` (dev, real backend) and
+`staticApi.ts` (`VITE_STATIC=true` production build). The Replay Lab stays fully
+interactive with zero backend: build any REMOVE_EVIDENCE / CHANGE_THRESHOLD mutation,
+it's genuinely evaluated by the TS engine, not looked up from a fixed list.
+
+Verified three ways before calling it done:
+1. Standalone script ran the TS engine against the bundle and asserted it reproduces
+   the exact backend numbers (0.834 BLOCK -> 0.549 ALLOW removing E3, plus multi-variable
+   CONTRAFACTUAL wording, plus bad-target error handling).
+2. `tsc --noEmit` clean, `bun run build` succeeds, dist assets confirmed reachable
+   through the live GitHub Pages CDN (HTML, JS, CSS, bundle.json all 200).
+3. **Live browser session against the actual deployed URL**: navigated, opened DEC-001,
+   added a REMOVE_EVIDENCE mutation on E3 through the real UI, clicked Run
+   Counterfactual, confirmed via `browser content` that the page displayed
+   BLOCK 0.834 -> ALLOW 0.549, DECISION_CRITICAL, exactly matching the golden numbers.
+   No pixel screenshot was possible (browser panel not visible in this environment this
+   session), but the functional check is definitive: real data, real click, real
+   computed result, not a mock.
+4. Deploy path: pushed a `gh-pages` branch (orphan, contains only `dist/`) via a git
+   worktree, enabled Pages via the GitHub API pointed at that branch, then had to
+   manually POST `/pages/builds` once because switching the `source` via PATCH didn't
+   auto-trigger a rebuild.
+
 ## Next session should start with
-1. Fresh browser session: `browser navigate http://127.0.0.1:5173/` against a freshly
-   started backend+frontend, confirm the killer demo visually end to end, screenshot it.
-2. Pick 1-2 of the deferred screens (Policy Impact Replay UI is probably highest value --
+1. Pick 1-2 of the deferred screens (Policy Impact Replay UI is probably highest value --
    the backend endpoint is done and it's a strong second demo) rather than trying to
-   build all remaining screens at once.
-3. If continuing multi-session: this file is the handoff. Confirm `git log --oneline`
-   matches `dce237e` (or later) before resuming.
+   build all remaining screens at once. If adding a new screen, remember it needs data in
+   `bundle.json` too if it's meant to work on the static Pages demo -- update
+   `dump_static_bundle.py` and rerun it before rebuilding the frontend.
+2. If continuing multi-session: this file is the handoff. Confirm `git log --oneline`
+   matches this commit (or later) before resuming.
