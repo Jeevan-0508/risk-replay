@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { DecisionDetail, LineageGraph, RiskAssessment, GovernanceFinding } from "../api";
+import type { DecisionDetail, LineageGraph, RiskAssessment, GovernanceFinding, BoundaryProfile, DecisionDNA } from "../api";
 import { OutcomeBadge, StatusBadge } from "../components/Badge";
 import { ReplayLab } from "./ReplayLab";
 import { ForensicSweep } from "./ForensicSweep";
@@ -10,6 +10,8 @@ export function DecisionForensics({ decisionId }: { decisionId: string }) {
   const [lineage, setLineage] = useState<LineageGraph | null>(null);
   const [risk, setRisk] = useState<RiskAssessment | null>(null);
   const [governance, setGovernance] = useState<GovernanceFinding[] | null>(null);
+  const [boundary, setBoundary] = useState<BoundaryProfile | null>(null);
+  const [dna, setDna] = useState<DecisionDNA | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,6 +21,8 @@ export function DecisionForensics({ decisionId }: { decisionId: string }) {
     api.getLineage(decisionId).then(setLineage).catch(() => {});
     api.getRisk(decisionId).then(setRisk).catch(() => {});
     api.getGovernance(decisionId).then(setGovernance).catch(() => {});
+    api.getBoundary(decisionId).then(setBoundary).catch(() => {});
+    api.getDna(decisionId).then(setDna).catch(() => {});
   }, [decisionId]);
 
   if (error) return <div className="error-banner">{error}</div>;
@@ -41,7 +45,26 @@ export function DecisionForensics({ decisionId }: { decisionId: string }) {
         <div className="metric-card"><div className="label">Model</div><div className="value" style={{ fontSize: 14 }}>{decision.model_id}</div></div>
         <div className="metric-card"><div className="label">Policy</div><div className="value" style={{ fontSize: 14 }}>{decision.policy_id}</div></div>
         {risk && <div className="metric-card"><div className="label">Risk Level</div><div className="value" style={{ fontSize: 14 }}>{risk.risk_level}</div></div>}
+        {boundary && (
+          <div className="metric-card">
+            <div className="label">Boundary</div>
+            <div className="value" style={{ fontSize: 14 }}>
+              {boundary.distance_to_block_threshold <= 0 ? "+" : ""}
+              {(-boundary.distance_to_block_threshold).toFixed(3)} from BLOCK ({boundary.zone})
+            </div>
+          </div>
+        )}
+        {dna && <div className="metric-card"><div className="label">Integrity</div><div className="value" style={{ fontSize: 14 }}>{dna.integrity_status}</div></div>}
       </div>
+
+      {dna && (
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-header">Decision DNA</div>
+          <div className="panel-body mono" style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
+{JSON.stringify(dna, null, 2)}
+          </div>
+        </div>
+      )}
 
       <div className="two-col">
         <div>

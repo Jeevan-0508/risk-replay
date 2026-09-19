@@ -26,6 +26,7 @@ from app.engines.mutation_engine import Mutation
 from app.engines.replay_engine import replay
 from app.engines.risk_engine import assess_risk, blast_radius
 from app.engines.sweep_engine import run_forensic_sweep, sweep_to_dict
+from app.engines import boundary_engine, dna_engine
 from app.api.schemas import (
     CounterfactualIn,
     CounterfactualOut,
@@ -221,6 +222,35 @@ def get_forensic_sweep(decision_id: str, sweep_id: str, db: Session = Depends(ge
     if not record or record.decision_id != decision_id:
         raise HTTPException(404, f"Forensic sweep {sweep_id} not found for decision {decision_id}")
     return record.result_json
+
+
+@app.get("/decisions/{decision_id}/boundary")
+def get_boundary(decision_id: str, db: Session = Depends(get_db)):
+    """Decision Boundary Analyzer: where this decision's score sits relative
+    to its policy's block/review thresholds. Pure delegation to
+    boundary_engine -- see docs/decision-boundary.md."""
+    decision = repo.get_decision(db, decision_id)
+    if not decision:
+        raise HTTPException(404, f"Decision {decision_id} not found")
+    policy = decision.context.policy_version
+    profile = boundary_engine.analyze(decision.risk_score, policy.block_threshold, policy.review_threshold)
+    return profile.to_dict()
+
+
+@app.get("/decisions/{decision_id}/dna")
+def get_dna(decision_id: str, approved_model: str = "fraud-v3.2", db: Session = Depends(get_db)):
+    """Decision DNA: a deterministic, human-readable forensic summary. Runs a
+    fresh in-memory Forensic Sweep (pure, deterministic, no side effects --
+    not persisted by this call) so decision_critical_variables and
+    governance_affected_controls reflect real computed results, never a
+    fabricated placeholder. See docs/decision-dna.md."""
+    decision = repo.get_decision(db, decision_id)
+    if not decision:
+        raise HTTPException(404, f"Decision {decision_id} not found")
+    baseline = replay(decision)
+    sweep = run_forensic_sweep(decision, approved_model_ids={approved_model})
+    dna = dna_engine.build_dna(decision, baseline.replayability.status, sweep=sweep)
+    return dna.to_dict()
 
 
 @app.get("/decisions/{decision_id}/risk", response_model=RiskAssessmentOut)

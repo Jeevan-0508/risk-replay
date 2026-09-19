@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 
 from app.domain.enums import MutationType
 from app.domain.models import Decision, DecisionContext
-from app.engines import causal_engine, governance_engine
+from app.engines import boundary_engine, causal_engine, governance_engine
 from app.engines.counterfactual_engine import CounterfactualResult, run_counterfactual
 from app.engines.diff_engine import decision_sensitivity
 from app.engines.mutation_engine import Mutation, apply_mutation
@@ -155,14 +155,22 @@ def _variable_kind(mutation_type: MutationType) -> str:
 
 
 def _boundary(baseline_score: float, cf_score: float, block_threshold: float, review_threshold: float) -> dict:
+    """Delegates all boundary arithmetic to boundary_engine (single source of
+    truth -- see docs/decision-boundary.md). Keeps the historical dict keys
+    used by existing callers/tests, and adds the richer boundary_engine
+    fields (zone, transition) alongside them rather than replacing them."""
+    t = boundary_engine.compare(baseline_score, cf_score, block_threshold, review_threshold)
     return {
         "baseline_margin_to_block_threshold": round(block_threshold - baseline_score, 4),
         "baseline_margin_to_review_threshold": round(review_threshold - baseline_score, 4),
         "counterfactual_margin_to_block_threshold": round(block_threshold - cf_score, 4),
         "counterfactual_margin_to_review_threshold": round(review_threshold - cf_score, 4),
-        "crossed_block_threshold": (baseline_score >= block_threshold) != (cf_score >= block_threshold),
-        "crossed_review_threshold": (baseline_score >= review_threshold) != (cf_score >= review_threshold),
+        "crossed_block_threshold": t.crossed_block_threshold,
+        "crossed_review_threshold": t.crossed_review_threshold,
         "direction": "decrease" if cf_score < baseline_score else ("increase" if cf_score > baseline_score else "none"),
+        "baseline_zone": t.baseline.zone,
+        "counterfactual_zone": t.counterfactual.zone,
+        "transition": t.transition,
     }
 
 

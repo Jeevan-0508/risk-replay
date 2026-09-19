@@ -326,6 +326,98 @@ export function decisionSensitivity(originalScore: number, mutatedScore: number,
   return Math.round(Math.min(1, delta / blockThreshold) * 10000) / 10000;
 }
 
+export interface BoundaryProfileLite {
+  score: number;
+  block_threshold: number;
+  review_threshold: number;
+  zone: string;
+  distance_to_block_threshold: number;
+  distance_to_review_threshold: number;
+}
+
+/** Mirrors backend/app/engines/boundary_engine.analyze() exactly. Single
+ * source of truth for the TS side; runForensicSweepStatic's internal
+ * `boundary()` helper below stays as-is for backward-compat field names. */
+export function analyzeBoundary(rawScore: number, blockThreshold: number, reviewThreshold: number): BoundaryProfileLite {
+  const score = Math.max(0, Math.min(1, rawScore));
+  let zone: string;
+  if (score >= blockThreshold) zone = "BLOCK";
+  else if (score >= reviewThreshold) zone = "REVIEW";
+  else zone = "ALLOW";
+  return {
+    score: Math.round(score * 10000) / 10000,
+    block_threshold: Math.round(blockThreshold * 10000) / 10000,
+    review_threshold: Math.round(reviewThreshold * 10000) / 10000,
+    zone,
+    distance_to_block_threshold: Math.round((blockThreshold - score) * 10000) / 10000,
+    distance_to_review_threshold: Math.round((reviewThreshold - score) * 10000) / 10000,
+  };
+}
+
+export interface DecisionDnaLite {
+  decision_id: string;
+  model: string;
+  policy: string;
+  baseline_score: number;
+  outcome: string;
+  boundary_margin: number;
+  zone: string;
+  replayability: string;
+  evidence_count: number;
+  decision_critical_variables: string[] | null;
+  governance_affected_controls: string[] | null;
+  integrity_status: string;
+}
+
+const INTEGRITY_BY_REPLAYABILITY: Record<string, string> = {
+  REPLAYABLE: "VERIFIED",
+  PARTIALLY_REPLAYABLE: "PARTIAL",
+  NON_REPLAYABLE: "UNKNOWN",
+};
+
+/** Mirrors backend/app/engines/dna_engine.build_dna() exactly. `sweep` is
+ * optional -- omit it to get explicit nulls for the sweep-derived fields,
+ * same contract as the Python version. */
+export function buildDnaStatic(
+  context: StaticContext,
+  decisionId: string,
+  baselineScore: number,
+  outcome: string,
+  replayabilityStatus: string,
+  sweep?: ForensicSweepResultLite,
+): DecisionDnaLite {
+  const policy = context.policy_version;
+  const profile = analyzeBoundary(baselineScore, policy.block_threshold, policy.review_threshold);
+
+  let criticalVars: string[] | null = null;
+  let affectedControls: string[] | null = null;
+  if (sweep) {
+    criticalVars = sweep.experiments.filter((e) => e.causal_status === "DECISION_CRITICAL").map((e) => e.variable);
+    const affected = new Set<string>();
+    for (const exp of sweep.experiments) {
+      for (const row of exp.governance_impact) {
+        if (row.changed) affected.add(row.control_id);
+      }
+    }
+    affectedControls = Array.from(affected).sort();
+  }
+
+  return {
+    decision_id: decisionId,
+    model: context.model_version.model_id,
+    policy: policy.policy_id,
+    baseline_score: Math.round(baselineScore * 10000) / 10000,
+    outcome,
+    boundary_margin: profile.distance_to_block_threshold,
+    zone: profile.zone,
+    replayability: replayabilityStatus,
+    evidence_count: context.evidence.length,
+    decision_critical_variables: criticalVars,
+    governance_affected_controls: affectedControls,
+    integrity_status: INTEGRITY_BY_REPLAYABILITY[replayabilityStatus] ?? "UNKNOWN",
+  };
+}
+
 function boundary(baselineScore: number, cfScore: number, blockThreshold: number, reviewThreshold: number) {
   return {
     baseline_margin_to_block_threshold: Math.round((blockThreshold - baselineScore) * 10000) / 10000,

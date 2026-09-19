@@ -158,7 +158,7 @@ Run the tests:
 
 ```bash
 cd backend
-python -m pytest -q         # 34 tests: unit, integration, property-based
+python -m pytest -q         # 80 tests: unit, integration, property-based
 ```
 
 ## Static demo mode
@@ -189,11 +189,17 @@ Built and tested end-to-end against real persisted data:
 - Forensic Sweep engine (`backend/app/engines/sweep_engine.py`) -- automatic,
   deterministic single-variable counterfactual scan per decision, reusing every existing
   engine rather than duplicating their formulas. See `docs/forensic-sweep.md`.
+- Decision Boundary Analyzer (`backend/app/engines/boundary_engine.py`) -- single source
+  of truth for zone/threshold math (`GET /decisions/{id}/boundary`), reused by the sweep
+  engine and Decision DNA rather than re-derived. See `docs/decision-boundary.md`.
+- Decision DNA (`backend/app/engines/dna_engine.py`) -- deterministic, human-readable
+  forensic summary per decision (`GET /decisions/{id}/dna`), never an opaque embedding.
+  See `docs/decision-dna.md`.
 - 40-decision golden dataset, event log, SQLite by default / Postgres-ready.
-- 60 automated tests: unit, API integration, Hypothesis property-based
+- 80 automated tests: unit, API integration, Hypothesis property-based
   (`Replay(original) == original`, remove-then-restore round-trips, threshold mutations
-  never leave `[0,1]`), and Forensic Sweep-specific determinism/isolation/adversarial
-  cases (`backend/tests/test_sweep_engine.py`).
+  never leave `[0,1]`), Forensic Sweep-specific determinism/isolation/adversarial cases,
+  and Boundary Analyzer / Decision DNA unit tests.
 
 Deliberately deferred (see `docs/` for the honest list, not hidden):
 - Full 10-screen forensic UI -- v1 ships Command Center, Decision Vault, Decision
@@ -214,6 +220,8 @@ Deliberately deferred (see `docs/` for the honest list, not hidden):
 - `docs/methodology.md` -- causal language rules
 - `docs/failure-modes.md` -- non-replayability, explicitly
 - `docs/forensic-sweep.md` -- automatic counterfactual sweep design, and why some mutation types are excluded from it
+- `docs/decision-boundary.md` -- zone/threshold math, the single source of truth for boundary crossings
+- `docs/decision-dna.md` -- deterministic forensic summary per decision, and the honest limits of `integrity_status`
 - `docs/security.md`, `docs/threat-model.md` -- what provenance hashing does and does
   not guarantee
 

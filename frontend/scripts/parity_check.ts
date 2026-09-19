@@ -7,7 +7,7 @@
  * mirrors). Run with: `bun run scripts/parity_check.ts` from frontend/.
  * Exits non-zero on any mismatch -- this is a real check, not a demo print.
  */
-import { runForensicSweepStatic } from "../src/staticEngine";
+import { runForensicSweepStatic, analyzeBoundary, buildDnaStatic } from "../src/staticEngine";
 import bundle from "../public/data/bundle.json";
 
 const ctx = (bundle as any).contexts["DEC-001"];
@@ -63,9 +63,26 @@ for (const t of ["CHANGE_POLICY", "CHANGE_MODEL", "CHANGE_THRESHOLD", "ADD_EVIDE
   }
 }
 
+
+// --- Decision Boundary Analyzer parity (backend/app/engines/boundary_engine.py) ---
+const boundaryProfile = analyzeBoundary(0.834, ctx.policy_version.block_threshold, ctx.policy_version.review_threshold);
+check("boundary.zone", boundaryProfile.zone, "BLOCK");
+check("boundary.distance_to_block_threshold", boundaryProfile.distance_to_block_threshold, -0.014);
+check("boundary.distance_to_review_threshold", boundaryProfile.distance_to_review_threshold, -0.284);
+
+// --- Decision DNA parity (backend/app/engines/dna_engine.py) ---
+const dna = buildDnaStatic(ctx, "DEC-001", 0.834, "BLOCK", "REPLAYABLE", result as any);
+check("dna.model", dna.model, "fraud-v3.2");
+check("dna.policy", dna.policy, "policy-17");
+check("dna.zone", dna.zone, "BLOCK");
+check("dna.integrity_status", dna.integrity_status, "VERIFIED");
+check("dna.evidence_count", dna.evidence_count, 4);
+check("dna.decision_critical_variables", JSON.stringify([...dna.decision_critical_variables!].sort()), JSON.stringify(["E1", "E2", "E3", "E4"]));
+check("dna.governance_affected_controls", JSON.stringify(dna.governance_affected_controls), JSON.stringify(["C-17"]));
+
 if (failures > 0) {
   console.error(`\nPARITY CHECK FAILED: ${failures} mismatch(es) between TS and Python golden values.`);
   process.exit(1);
 } else {
-  console.log("PARITY CHECK PASSED: TypeScript Forensic Sweep result matches the Python golden values exactly.");
+  console.log("PARITY CHECK PASSED: TypeScript Forensic Sweep, Boundary Analyzer and Decision DNA all match the Python golden values exactly.");
 }

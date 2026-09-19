@@ -11,8 +11,8 @@
  * the Replay Lab are genuinely evaluated, not looked up. See STATUS.md for
  * why this exists: GitHub Pages can't run the Python backend.
  */
-import type { DecisionSummary, DecisionDetail, LineageGraph, CounterfactualOut, RiskAssessment, GovernanceFinding, ForensicSweepOut } from "./liveApi";
-import { runCounterfactual, runForensicSweepStatic } from "./staticEngine";
+import type { DecisionSummary, DecisionDetail, LineageGraph, CounterfactualOut, RiskAssessment, GovernanceFinding, ForensicSweepOut, BoundaryProfile, DecisionDNA } from "./liveApi";
+import { runCounterfactual, runForensicSweepStatic, analyzeBoundary, buildDnaStatic } from "./staticEngine";
 import type { StaticContext } from "./staticEngine";
 
 interface Bundle {
@@ -121,6 +121,23 @@ export const staticApi = {
     if (!ctx) throw new Error(`Decision ${id} not found`);
     const result = runForensicSweepStatic(ctx, id, new Set([approvedModel]));
     return { ...result, timestamp: new Date().toISOString() } as ForensicSweepOut;
+  },
+
+  getBoundary: async (id: string): Promise<BoundaryProfile> => {
+    const b = await loadBundle();
+    const ctx = b.contexts[id];
+    if (!ctx) throw new Error(`Decision ${id} not found`);
+    const detail = b.details[id];
+    return analyzeBoundary(detail.risk_score, ctx.policy_version.block_threshold, ctx.policy_version.review_threshold);
+  },
+
+  getDna: async (id: string, approvedModel: string = "fraud-v3.2"): Promise<DecisionDNA> => {
+    const b = await loadBundle();
+    const ctx = b.contexts[id];
+    const detail = b.details[id];
+    if (!ctx || !detail) throw new Error(`Decision ${id} not found`);
+    const sweep = runForensicSweepStatic(ctx, id, new Set([approvedModel]));
+    return buildDnaStatic(ctx, id, detail.risk_score, detail.final_outcome, detail.replayability_status, sweep as any);
   },
 
   health: async () => ({ status: "ok (static demo, no backend)" }),

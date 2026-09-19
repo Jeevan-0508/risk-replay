@@ -128,6 +128,30 @@ export interface ForensicSweepOut {
   };
 }
 
+export interface BoundaryProfile {
+  score: number;
+  block_threshold: number;
+  review_threshold: number;
+  zone: string;
+  distance_to_block_threshold: number;
+  distance_to_review_threshold: number;
+}
+
+export interface DecisionDNA {
+  decision_id: string;
+  model: string;
+  policy: string;
+  baseline_score: number;
+  outcome: string;
+  boundary_margin: number;
+  zone: string;
+  replayability: string;
+  evidence_count: number;
+  decision_critical_variables: string[] | null;
+  governance_affected_controls: string[] | null;
+  integrity_status: string;
+}
+
 export const liveApi = {
   listDecisions: () => req<DecisionSummary[]>("/decisions"),
   getDecision: (id: string) => req<DecisionDetail>(`/decisions/${id}`),
@@ -145,5 +169,8 @@ export const liveApi = {
     req<any>(`/policies/${policyId}/impact-replay`, { method: "POST", body: JSON.stringify(body) }),
   forensicSweep: (id: string, approvedModel: string = "fraud-v3.2") =>
     req<ForensicSweepOut>(`/decisions/${id}/forensic-sweep`, { method: "POST", body: JSON.stringify({ approved_model: approvedModel }) }),
+  getBoundary: (id: string) => req<BoundaryProfile>(`/decisions/${id}/boundary`),
+  getDna: (id: string, approvedModel: string = "fraud-v3.2") =>
+    req<DecisionDNA>(`/decisions/${id}/dna?approved_model=${encodeURIComponent(approvedModel)}`),
   health: () => req<{ status: string }>("/health"),
 };
