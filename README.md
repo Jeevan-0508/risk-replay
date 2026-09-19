@@ -158,7 +158,7 @@ Run the tests:
 
 ```bash
 cd backend
-python -m pytest -q         # 92 tests: unit, integration, property-based
+python -m pytest -q         # 102 tests: unit, integration, property-based
 ```
 
 ## Static demo mode
@@ -201,18 +201,29 @@ Built and tested end-to-end against real persisted data:
   after recording, missing hashes and malformed values. Explicit about what it does and
   does not guarantee -- not a signature scheme, no dedicated hash for model weights or
   raw tool output. See `docs/integrity.md`.
+- Incident Blast-Radius Forensics (`backend/app/engines/incident_engine.py`) --
+  `GET /incidents/{id}/blast-radius` now runs a real per-decision counterfactual
+  (remove the incident's tagged evidence kind, replay, check if the outcome flips)
+  across every decision in the incident, plus a real replayability breakdown and
+  affected policy/model/source/control sets. Fixes a real prior bug where this
+  endpoint always passed an empty change list and reported zero impact regardless of
+  the incident. The "common replay dependency" it reports is explicitly labeled as a
+  fact about the replay model, never asserted as the real-world root cause. See
+  `docs/incident-forensics.md`.
 - 40-decision golden dataset, event log, SQLite by default / Postgres-ready.
-- 92 automated tests: unit, API integration, Hypothesis property-based
+- 102 automated tests: unit, API integration, Hypothesis property-based
   (`Replay(original) == original`, remove-then-restore round-trips, threshold mutations
   never leave `[0,1]`), Forensic Sweep-specific determinism/isolation/adversarial cases,
-  Boundary Analyzer / Decision DNA unit tests, and Replay Integrity adversarial tests
-  (tampered evidence, tampered input, changed model/policy, missing hash, malformed value).
+  Boundary Analyzer / Decision DNA unit tests, Replay Integrity adversarial tests
+  (tampered evidence, tampered input, changed model/policy, missing hash, malformed value),
+  and Incident Blast-Radius tests (dependency detection, honest no-op path, wording rule).
 
 Deliberately deferred (see `docs/` for the honest list, not hidden):
 - Full 10-screen forensic UI -- v1 ships Command Center, Decision Vault, Decision
   Forensics, and the Replay/Mutation Lab (the killer feature), wired to the real API.
   Timeline, Evidence Graph visualization, and Incident Console are backend-complete
-  (real endpoints, real data) but not yet given dedicated screens.
+  (real endpoints, real data, including a real per-decision blast-radius counterfactual)
+  but not yet given dedicated screens.
 - PII redaction / field-level masking engine.
 - Full adversarial test suite (forged evidence, replay poisoning) -- covered
   conceptually in `docs/threat-model.md`, not yet as executable tests.
@@ -230,6 +241,7 @@ Deliberately deferred (see `docs/` for the honest list, not hidden):
 - `docs/decision-boundary.md` -- zone/threshold math, the single source of truth for boundary crossings
 - `docs/decision-dna.md` -- deterministic forensic summary per decision, and the honest limits of `integrity_status`
 - `docs/integrity.md` -- what content-hash verification catches, and what it genuinely cannot
+- `docs/incident-forensics.md` -- blast-radius mechanics, the bug it fixed, and the "common replay dependency" wording rule
 - `docs/security.md`, `docs/threat-model.md` -- what provenance hashing does and does
   not guarantee
 

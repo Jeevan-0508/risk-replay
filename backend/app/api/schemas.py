@@ -101,6 +101,9 @@ class IncidentIn(BaseModel):
     title: str
     description: str = ""
     decision_ids: list[str]
+    affected_evidence_kind: str | None = None  # e.g. "identity_risk" -- the shared
+    # evidence dimension suspected compromised across every decision in this incident,
+    # used to drive a real per-decision counterfactual in the blast-radius engine.
 
 
 class PolicyIn(BaseModel):

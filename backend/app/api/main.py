@@ -24,9 +24,9 @@ from app.engines.counterfactual_engine import run_counterfactual
 from app.engines.governance_engine import evaluate_controls
 from app.engines.mutation_engine import Mutation
 from app.engines.replay_engine import replay
-from app.engines.risk_engine import assess_risk, blast_radius
+from app.engines.risk_engine import assess_risk
 from app.engines.sweep_engine import run_forensic_sweep, sweep_to_dict
-from app.engines import boundary_engine, dna_engine, integrity_engine
+from app.engines import boundary_engine, dna_engine, integrity_engine, incident_engine
 from app.api.schemas import (
     CounterfactualIn,
     CounterfactualOut,
@@ -336,8 +336,10 @@ def get_models(db: Session = Depends(get_db)):
 @app.post("/incidents")
 def create_incident(incident: IncidentIn, db: Session = Depends(get_db)):
     incident_id = f"INC-{uuid.uuid4().hex[:6]}"
-    repo.create_incident(db, incident_id, incident.title, incident.description, incident.decision_ids)
-    return {"incident_id": incident_id, "title": incident.title, "decision_ids": incident.decision_ids}
+    repo.create_incident(db, incident_id, incident.title, incident.description, incident.decision_ids,
+                          affected_evidence_kind=incident.affected_evidence_kind)
+    return {"incident_id": incident_id, "title": incident.title, "decision_ids": incident.decision_ids,
+            "affected_evidence_kind": incident.affected_evidence_kind}
 
 
 @app.get("/incidents/{incident_id}")
@@ -350,6 +352,7 @@ def get_incident(incident_id: str, db: Session = Depends(get_db)):
     return {
         "incident_id": record.incident_id, "title": record.title, "description": record.description,
         "created_at": record.created_at, "decision_count": len(decisions),
+        "affected_evidence_kind": record.affected_evidence_kind,
         "model_versions": sorted({d.context.model_version.model_id for d in decisions}),
         "policy_versions": sorted({d.context.policy_version.policy_id for d in decisions}),
         "decisions": [_summary(d).model_dump() for d in decisions],
@@ -372,12 +375,16 @@ def get_incident_timeline(incident_id: str, db: Session = Depends(get_db)):
 
 @app.get("/incidents/{incident_id}/blast-radius")
 def get_incident_blast_radius(incident_id: str, db: Session = Depends(get_db)):
+    """Real, replay-derived blast radius: replayability breakdown across every decision in the
+    incident, plus (if the incident names a suspected evidence kind) a per-decision counterfactual
+    test of whether removing that evidence flips each decision's outcome."""
     record = repo.get_incident(db, incident_id)
     if not record:
         raise HTTPException(404, f"Incident {incident_id} not found")
     decisions = [repo.get_decision(db, did) for did in record.decision_ids_json]
     decisions = [d for d in decisions if d]
-    return blast_radius(decisions, [])
+    report = incident_engine.analyze_blast_radius(incident_id, decisions, record.affected_evidence_kind)
+    return report.to_dict()
 
 
 @app.post("/policies/{policy_id}/impact-replay")

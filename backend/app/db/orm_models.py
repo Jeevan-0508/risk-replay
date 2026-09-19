@@ -105,6 +105,7 @@ class IncidentRecord(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     decision_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    affected_evidence_kind: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class PolicyRecord(Base):

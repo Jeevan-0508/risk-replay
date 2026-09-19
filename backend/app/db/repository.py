@@ -120,10 +120,12 @@ def save_counterfactual(db: Session, result: CounterfactualResult, causal_status
     db.commit()
 
 
-def create_incident(db: Session, incident_id: str, title: str, description: str, decision_ids: list[str]) -> None:
+def create_incident(db: Session, incident_id: str, title: str, description: str, decision_ids: list[str],
+                     affected_evidence_kind: str | None = None) -> None:
     db.add(IncidentRecord(
         incident_id=incident_id, title=title, description=description,
         created_at=datetime.now(timezone.utc), decision_ids_json=decision_ids,
+        affected_evidence_kind=affected_evidence_kind,
     ))
     for did in decision_ids:
         rec = db.get(DecisionRecord, did)
