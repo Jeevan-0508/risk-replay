@@ -158,7 +158,7 @@ Run the tests:
 
 ```bash
 cd backend
-python -m pytest -q         # 80 tests: unit, integration, property-based
+python -m pytest -q         # 92 tests: unit, integration, property-based
 ```
 
 ## Static demo mode
@@ -195,11 +195,18 @@ Built and tested end-to-end against real persisted data:
 - Decision DNA (`backend/app/engines/dna_engine.py`) -- deterministic, human-readable
   forensic summary per decision (`GET /decisions/{id}/dna`), never an opaque embedding.
   See `docs/decision-dna.md`.
+- Replay Integrity (`backend/app/engines/integrity_engine.py`) -- recomputes evidence/
+  input/context content hashes and compares against what was persisted
+  (`GET /decisions/{id}/integrity`), catching tampered values, changed model/policy IDs
+  after recording, missing hashes and malformed values. Explicit about what it does and
+  does not guarantee -- not a signature scheme, no dedicated hash for model weights or
+  raw tool output. See `docs/integrity.md`.
 - 40-decision golden dataset, event log, SQLite by default / Postgres-ready.
-- 80 automated tests: unit, API integration, Hypothesis property-based
+- 92 automated tests: unit, API integration, Hypothesis property-based
   (`Replay(original) == original`, remove-then-restore round-trips, threshold mutations
   never leave `[0,1]`), Forensic Sweep-specific determinism/isolation/adversarial cases,
-  and Boundary Analyzer / Decision DNA unit tests.
+  Boundary Analyzer / Decision DNA unit tests, and Replay Integrity adversarial tests
+  (tampered evidence, tampered input, changed model/policy, missing hash, malformed value).
 
 Deliberately deferred (see `docs/` for the honest list, not hidden):
 - Full 10-screen forensic UI -- v1 ships Command Center, Decision Vault, Decision
@@ -222,6 +229,7 @@ Deliberately deferred (see `docs/` for the honest list, not hidden):
 - `docs/forensic-sweep.md` -- automatic counterfactual sweep design, and why some mutation types are excluded from it
 - `docs/decision-boundary.md` -- zone/threshold math, the single source of truth for boundary crossings
 - `docs/decision-dna.md` -- deterministic forensic summary per decision, and the honest limits of `integrity_status`
+- `docs/integrity.md` -- what content-hash verification catches, and what it genuinely cannot
 - `docs/security.md`, `docs/threat-model.md` -- what provenance hashing does and does
   not guarantee
 

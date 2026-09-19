@@ -60,6 +60,15 @@ def get_decision(db: Session, decision_id: str) -> Decision | None:
     return record_to_decision(record) if record else None
 
 
+def get_stored_context_hash(db: Session, decision_id: str) -> str | None:
+    """The context_hash column persisted at save time -- separate from the
+    context_json blob, so a caller can recompute the hash from the current
+    (possibly tampered) context and compare it against this independently
+    stored value. See app.engines.integrity_engine."""
+    record = db.get(DecisionRecord, decision_id)
+    return record.context_hash if record else None
+
+
 def list_decisions(db: Session, limit: int = 200) -> list[Decision]:
     records = db.execute(select(DecisionRecord).order_by(DecisionRecord.timestamp).limit(limit)).scalars().all()
     return [record_to_decision(r) for r in records]

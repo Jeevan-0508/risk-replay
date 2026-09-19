@@ -26,7 +26,7 @@ from app.engines.mutation_engine import Mutation
 from app.engines.replay_engine import replay
 from app.engines.risk_engine import assess_risk, blast_radius
 from app.engines.sweep_engine import run_forensic_sweep, sweep_to_dict
-from app.engines import boundary_engine, dna_engine
+from app.engines import boundary_engine, dna_engine, integrity_engine
 from app.api.schemas import (
     CounterfactualIn,
     CounterfactualOut,
@@ -237,6 +237,20 @@ def get_boundary(decision_id: str, db: Session = Depends(get_db)):
     return profile.to_dict()
 
 
+@app.get("/decisions/{decision_id}/integrity")
+def get_integrity(decision_id: str, db: Session = Depends(get_db)):
+    """Replay Integrity: recomputes every content hash this system actually
+    tracks (evidence, input snapshot, whole-context) and compares against
+    what was persisted at save time. See docs/integrity.md for exactly what
+    this does and does not guarantee."""
+    decision = repo.get_decision(db, decision_id)
+    if not decision:
+        raise HTTPException(404, f"Decision {decision_id} not found")
+    stored_hash = repo.get_stored_context_hash(db, decision_id)
+    report = integrity_engine.verify_integrity(decision, stored_context_hash=stored_hash)
+    return report.to_dict()
+
+
 @app.get("/decisions/{decision_id}/dna")
 def get_dna(decision_id: str, approved_model: str = "fraud-v3.2", db: Session = Depends(get_db)):
     """Decision DNA: a deterministic, human-readable forensic summary. Runs a
@@ -249,7 +263,8 @@ def get_dna(decision_id: str, approved_model: str = "fraud-v3.2", db: Session = 
         raise HTTPException(404, f"Decision {decision_id} not found")
     baseline = replay(decision)
     sweep = run_forensic_sweep(decision, approved_model_ids={approved_model})
-    dna = dna_engine.build_dna(decision, baseline.replayability.status, sweep=sweep)
+    stored_hash = repo.get_stored_context_hash(db, decision_id)
+    dna = dna_engine.build_dna(decision, baseline.replayability.status, sweep=sweep, stored_context_hash=stored_hash)
     return dna.to_dict()
 
 

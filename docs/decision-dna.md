@@ -43,17 +43,28 @@ that would read as "nothing here is critical". `GET /decisions/{id}/dna`
 always runs a fresh in-memory sweep (pure, deterministic, not persisted by
 that call) so the served DNA never has to guess.
 
-## Honest limitation: `integrity_status`
+## `integrity_status`
 
-This field is currently derived **only** from whether the decision
-replayed (`REPLAYABLE` -> `VERIFIED`, `PARTIALLY_REPLAYABLE` -> `PARTIAL`,
-`NON_REPLAYABLE` -> `UNKNOWN`). It is **not** a cryptographic
-tamper-detection verdict. A decision whose evidence was silently altered
-without updating its recorded hash would still show `VERIFIED` here,
-because nothing in this engine re-verifies hashes yet. A genuine
-hash-verification integrity layer is a separate, not-yet-built capability
--- do not read `integrity_status` as proof the underlying data is
-untampered.
+**Updated**: `integrity_status` now comes from a real Replay Integrity
+check (`integrity_engine.verify_integrity`, see `docs/integrity.md`) when
+the caller supplies a persisted `context_hash` to compare against --
+which `GET /decisions/{id}/dna` always does. It genuinely detects a
+tampered evidence value, a tampered input payload, or a changed
+model_id/policy_id after the fact.
+
+Remaining honest limits (see `docs/integrity.md` for the full scope): it
+does not prove the original data was ever true (only that it hasn't
+drifted since its hash was first computed), it is not a cryptographic
+signature scheme, and model weights / raw tool output are not
+independently hashed.
+
+**Static demo (GitHub Pages) note**: the browser-side TS port does not
+include a client-side integrity check. The static bundle is a frozen,
+already-trusted snapshot with nothing tampering it at runtime, so a ported
+hash-verification would always trivially return `VERIFIED` -- there is no
+adversary in that context for it to catch anything against. The static
+demo's DNA panel falls back to the replayability-only signal for this
+field; this is a deliberate, disclosed scope boundary, not an oversight.
 
 ## API
 

@@ -12,11 +12,12 @@ for this decision, decision_critical_variables and governance_affected_
 controls are reported as an explicit `null` (not run), never as an empty
 list pretending "nothing is critical".
 
-integrity_status here is intentionally limited to what is genuinely checked
-today: whether the decision replayed at all (see replay_engine /
-replayability). It is NOT a cryptographic tamper-detection verdict -- that
-is a separate, not-yet-built capability (see docs/integrity.md for the
-explicit scope of what content_hash does and does not guarantee).
+integrity_status now comes from a real Replay Integrity check
+(integrity_engine.verify_integrity), which recomputes evidence/input/
+context hashes and compares them to what was persisted. See docs/
+integrity.md for the exact scope of what that check guarantees and does
+not guarantee (it does not catch a fully self-consistent forgery, and
+model weights / raw tool output are not independently hashed today).
 """
 from __future__ import annotations
 
@@ -24,14 +25,8 @@ from dataclasses import dataclass
 
 from app.domain.enums import ReplayabilityStatus
 from app.domain.models import Decision
-from app.engines import boundary_engine
+from app.engines import boundary_engine, integrity_engine
 from app.engines.sweep_engine import ForensicSweepResult
-
-_INTEGRITY_BY_REPLAYABILITY = {
-    ReplayabilityStatus.REPLAYABLE: "VERIFIED",
-    ReplayabilityStatus.PARTIALLY_REPLAYABLE: "PARTIAL",
-    ReplayabilityStatus.NON_REPLAYABLE: "UNKNOWN",
-}
 
 
 @dataclass(frozen=True)
@@ -70,6 +65,7 @@ def build_dna(
     decision: Decision,
     replayability_status: ReplayabilityStatus,
     sweep: ForensicSweepResult | None = None,
+    stored_context_hash: str | None = None,
 ) -> DecisionDNA:
     """Build a DecisionDNA record.
 
@@ -78,6 +74,12 @@ def build_dna(
     populate decision_critical_variables/governance_affected_controls. If
     no sweep is supplied, both fields are None -- explicitly "not computed",
     never a fabricated empty list.
+
+    `stored_context_hash` is optional: if supplied (the persisted value from
+    the DB, never recomputed by this function itself), integrity_status
+    reflects a real hash-verification check. If omitted, integrity_status
+    falls back to a replayability-only signal, which is honestly weaker --
+    see docs/integrity.md for the exact difference.
     """
     policy = decision.context.policy_version
     profile = boundary_engine.analyze(decision.risk_score, policy.block_threshold, policy.review_threshold)
@@ -95,6 +97,16 @@ def build_dna(
                     affected.add(row["control_id"])
         affected_controls = sorted(affected)
 
+    if stored_context_hash is not None:
+        integrity_status = integrity_engine.verify_integrity(decision, stored_context_hash=stored_context_hash).status
+    else:
+        # Fallback signal only -- weaker than a real hash check. See docs/integrity.md.
+        integrity_status = {
+            ReplayabilityStatus.REPLAYABLE: "VERIFIED",
+            ReplayabilityStatus.PARTIALLY_REPLAYABLE: "PARTIAL",
+            ReplayabilityStatus.NON_REPLAYABLE: "UNKNOWN",
+        }.get(replayability_status, "UNKNOWN")
+
     return DecisionDNA(
         decision_id=decision.decision_id,
         model=policy and decision.context.model_version.model_id,
@@ -107,5 +119,5 @@ def build_dna(
         evidence_count=len(decision.context.evidence),
         decision_critical_variables=critical_vars,
         governance_affected_controls=affected_controls,
-        integrity_status=_INTEGRITY_BY_REPLAYABILITY.get(replayability_status, "UNKNOWN"),
+        integrity_status=integrity_status,
     )
