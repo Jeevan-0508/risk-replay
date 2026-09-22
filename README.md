@@ -1,13 +1,22 @@
+<p align="center"><img src="assets/jk-brand-banner.png" alt="Jeevan Siddhabhaktula: Risk. Governance. AI." width="280"></p>
+
+<div align="center">
+
 # RISK//REPLAY
 
 **AI Decision Forensics & Counterfactual Replay Engine**
 
-> Reconstruct the decision. Change the evidence. See what breaks.
+*Reconstruct the decision. Change the evidence. See what breaks.*
 
-**Live demo:** [jeevan-0508.github.io/risk-replay](https://jeevan-0508.github.io/risk-replay/)
-(static build against a precomputed dataset, no backend required, see
-[Static demo mode](#static-demo-mode) below). For the full dynamic backend, run it
-locally: see [Quick start](#quick-start).
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-jeevan--0508.github.io-38bdf8?style=for-the-badge)](https://jeevan-0508.github.io/risk-replay/)
+[![Tests](https://img.shields.io/badge/Tests-102%2F102_passing-22c55e?style=for-the-badge)](backend)
+[![Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20React%20%7C%20SQLAlchemy-818cf8?style=for-the-badge)](#architecture)
+
+</div>
+
+**Live demo** is a static build against a precomputed dataset, no backend required, see
+[Static demo mode](#static-demo-mode) below. For the full dynamic backend, run it locally:
+see [Quick start](#quick-start).
 
 ## The problem
 
@@ -117,15 +126,37 @@ design and the TS/Python parity guarantee for the static demo: `docs/forensic-sw
 
 ## Architecture
 
-```
-        WEB UI  (React/Vite, minimal -- see frontend/)
-           |
-        REST API (FastAPI)
-           |
-  Decision Store / Event Store / Policy & Model Registry   (SQLAlchemy -> Postgres or SQLite)
-           |
-  Lineage -> Replay -> Mutation -> Counterfactual -> Diff -> Risk -> Governance -> Incident
-  (backend/app/engines/*.py -- pure, deterministic, zero SQL, zero HTTP, zero LLM calls)
+```mermaid
+flowchart TD
+    UI["WEB UI
+React/Vite, minimal (frontend/)"]
+    API["REST API
+FastAPI"]
+    DB["Decision Store / Event Store
+Policy & Model Registry
+SQLAlchemy -> Postgres or SQLite"]
+
+    subgraph ENGINES["backend/app/engines/*.py
+pure, deterministic: zero SQL, zero HTTP, zero LLM calls"]
+        DE["decision_engine.py"]
+        RE["replay_engine.py"]
+        DNA["dna_engine.py"]
+        MU["mutation_engine.py"]
+        CF["counterfactual_engine.py"]
+        DI["diff_engine.py"]
+        RI["risk_engine.py"]
+        GO["governance_engine.py"]
+        BO["boundary_engine.py"]
+        SW["sweep_engine.py"]
+        IN["incident_engine.py"]
+        IT["integrity_engine.py"]
+    end
+
+    UI --> API --> DB --> DE --> RE --> DNA --> MU --> CF --> DI --> RI --> GO
+    RI --> BO
+    RI --> SW
+    GO --> IN
+    IN --> IT
 ```
 
 The engines never import SQLAlchemy or FastAPI. They operate purely on the frozen
