@@ -2,8 +2,9 @@ import { useState } from "react";
 import { CommandCenter } from "./views/CommandCenter";
 import { DecisionVault } from "./views/DecisionVault";
 import { DecisionForensics } from "./views/DecisionForensics";
+import { ResearchCaptureReview } from "./views/ResearchCaptureReview";
 
-type View = "command-center" | "vault" | "forensics";
+type View = "command-center" | "vault" | "forensics" | "research-capture";
 
 export default function App() {
   const [view, setView] = useState<View>("command-center");
@@ -28,6 +29,7 @@ export default function App() {
         <div className={`nav-item ${view === "forensics" ? "active" : ""}`} onClick={() => decisionId && setView("forensics")}>
           Decision Forensics {decisionId ? `(${decisionId})` : ""}
         </div>
+        <div className={`nav-item ${view === "research-capture" ? "active" : ""}`} onClick={() => setView("research-capture")}>Research Capture</div>
 
         <div style={{ marginTop: "auto", padding: "12px 16px", color: "var(--text-2)", fontSize: 10 }}>
           v0.1.0 &middot; synthetic demo data<br />no LLM in decision path
@@ -39,6 +41,7 @@ export default function App() {
         {view === "vault" && <DecisionVault onOpenDecision={openDecision} />}
         {view === "forensics" && decisionId && <DecisionForensics decisionId={decisionId} />}
         {view === "forensics" && !decisionId && <div className="empty-state">Open a decision from the Command Center or Decision Vault.</div>}
+        {view === "research-capture" && <ResearchCaptureReview />}
       </div>
     </div>
   );

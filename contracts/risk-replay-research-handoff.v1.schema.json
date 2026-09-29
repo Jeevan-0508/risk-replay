@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Jeevan-0508/risk-replay/blob/main/contracts/risk-replay-research-handoff.v1.schema.json",
+  "title": "RISK//REPLAY research handoff v1",
+  "description": "A local file wrapper around one validated SWARM research capture. It records receipt only: no provider calls are rerun, no decision is created, no source is authenticated, and no knowledge is approved.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "created_at", "review_state", "replay_status", "capture"],
+  "properties": {
+    "schema_version": { "const": "risk-replay-research-handoff.v1" },
+    "kind": { "const": "risk_replay_research_handoff" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "review_state": { "const": "unreviewed" },
+    "replay_status": { "const": "not_replayed" },
+    "capture": {
+      "$ref": "https://raw.githubusercontent.com/Jeevan-0508/risk-swarm/24b068f3357753812df92e3e5a8a66ae36c08586/contracts/swarm-research-capture.v1.schema.json"
+    }
+  }
+}
