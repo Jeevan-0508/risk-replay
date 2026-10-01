@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { toRiskReplayHandoff, validateSwarmResearchCapture, type SwarmResearchCapture } from "../researchCapture";
+import { validateInvestigationHandoff, reconstructFrozenContext, type InvestigationHandoff } from "../investigationHandoff";
 
 export function ResearchCaptureReview() {
   const [capture, setCapture] = useState<SwarmResearchCapture | null>(null);
+  const [investigation, setInvestigation] = useState<InvestigationHandoff | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function readFile(file: File | null) {
     setCapture(null);
+    setInvestigation(null);
     setFileName(null);
     setError(null);
     if (!file) return;
@@ -19,7 +22,10 @@ export function ResearchCaptureReview() {
       const parsed: unknown = JSON.parse(await file.text());
       const result = validateSwarmResearchCapture(parsed);
       if (!result.ok) {
-        setError(result.error);
+        const frozen = validateInvestigationHandoff(parsed);
+        if (!frozen.ok) { setError(`${result.error} ${frozen.error}`); return; }
+        setInvestigation(frozen.handoff);
+        setFileName(file.name);
         return;
       }
       setCapture(result.capture);
@@ -122,6 +128,17 @@ export function ResearchCaptureReview() {
             </div>
           </div>
         </>
+      )}
+      {investigation && (
+        <div className="panel" style={{ marginTop: 16 }}>
+          <div className="panel-header"><span>Frozen investigation handoff</span><span className="mono">UNREVIEWED · RECONSTRUCTED</span></div>
+          <div className="panel-body">
+            <div className="warning-banner">This snapshot reconstructs recorded SWARM statements only. It does not rerun providers, establish source truth, record an outcome, or promote knowledge. Any Fraud Watch candidate remains synthetic hypothesis context.</div>
+            <div className="research-handoff-sub" style={{ marginTop: 10 }}>Loaded locally from {fileName}</div>
+            <div style={{ marginTop: 12 }}><div className="research-handoff-label">Question</div><p>{investigation.snapshot.capture.research.question}</p></div>
+            <pre className="mono" style={{ whiteSpace: "pre-wrap", marginTop: 12 }}>{JSON.stringify(reconstructFrozenContext(investigation), null, 2)}</pre>
+          </div>
+        </div>
       )}
     </div>
   );
