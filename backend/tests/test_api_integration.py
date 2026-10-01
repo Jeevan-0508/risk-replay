@@ -54,6 +54,17 @@ def test_health(client):
     assert r.json()["status"] == "ok"
 
 
+def test_production_api_key_guard_fails_closed(client, monkeypatch):
+    import app.api.main as mainmod
+
+    monkeypatch.setattr(mainmod, "_require_api_key", True)
+    monkeypatch.setattr(mainmod, "_api_key", "test-secret")
+    assert client.get("/health").status_code == 200
+    assert client.get("/decisions").status_code == 401
+    assert client.get("/decisions", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/decisions", headers={"X-API-Key": "test-secret"}).status_code == 200
+
+
 def test_list_and_get_decision(client):
     r = client.get("/decisions")
     assert r.status_code == 200
