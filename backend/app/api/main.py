@@ -8,11 +8,13 @@ built yet, the route does not exist rather than returning fabricated data.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db, init_db
@@ -57,9 +59,32 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+_environment = os.getenv('RISK_REPLAY_ENV', 'development').lower()
+_allowed_origins = [origin.strip() for origin in os.getenv('RISK_REPLAY_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',') if origin.strip()]
+_api_key = os.getenv('RISK_REPLAY_API_KEY')
+_require_api_key = os.getenv('RISK_REPLAY_REQUIRE_API_KEY', 'true' if _environment == 'production' else 'false').lower() == 'true'
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_methods=['GET', 'POST', 'OPTIONS'],
+    allow_headers=['Content-Type', 'X-API-Key'],
+    allow_credentials=False,
 )
+
+
+@app.middleware('http')
+async def api_key_guard(request: Request, call_next):
+    """Require an operator-configured API key outside health checks in production.
+
+    Local development stays usable without a key. Production fails closed when the
+    key is missing or does not match; no endpoint silently becomes public because
+    deployment configuration was omitted.
+    """
+    if request.url.path == '/health' or request.method == 'OPTIONS':
+        return await call_next(request)
+    if _require_api_key and (not _api_key or request.headers.get('x-api-key') != _api_key):
+        return JSONResponse(status_code=401, content={'detail': 'API key required for this deployment.'})
+    return await call_next(request)
 
 
 def _summary(decision) -> DecisionSummaryOut:

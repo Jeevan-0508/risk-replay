@@ -205,6 +205,10 @@ evaluated, not looked up from a fixed list). `frontend/src/api.ts` picks this
 Verified the TS port reproduces the exact backend numbers for the golden scenario and
 for multi-variable mutations before deploying.
 
+## SWARM research handoff
+
+The optional Research Capture Review screen accepts a versioned SWARM JSON export as a local file. It keeps imported source records separate from an optional synthetic Fraud Watch hypothesis, creates no decision, and does not rerun provider calls. The downstream MESH handoff remains marked unreviewed and not replayed. See [`docs/research-handoff.md`](docs/research-handoff.md) for the boundaries and contract.
+
 The dynamic backend (persistence, incidents, policy-impact-replay, arbitrary decisions
 beyond the golden dataset) only runs locally -- see Quick start below.
 
