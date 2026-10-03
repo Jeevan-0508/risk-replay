@@ -1,7 +1,7 @@
 [project]
 name = "risk-replay-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Replayable forensic analysis for AI risk decisions"
 authors = [
     { name = "Jeevan-0508", email = "jeevansiddhabhaktula@gmail.com" }
 ]
